@@ -40,5 +40,5 @@ build/
 *.iml
 
 # Miscellaneous
-init-scripts/
+init-scripts-unused/
 *.DS_Store
