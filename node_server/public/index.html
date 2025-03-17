@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time IoT Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        #data { margin-top: 20px; }
+        .sensor { margin-bottom: 10px; padding: 10px; border: 1px solid black; display: inline-block; }
+    </style>
+</head>
+<body>
+<h1>Real-Time IoT Sensor Data</h1>
+<div id="data"></div>
+
+<script>
+    const ws = new WebSocket("ws://localhost:3000");
+
+    ws.onmessage = (event) => {
+        console.log("event");
+        const sensorData = JSON.parse(event.data);
+        console.log("Received:", sensorData);
+        const dataDiv = document.getElementById("data");
+        const sensorDiv = document.createElement("div");
+        sensorDiv.className = "sensor";
+        sensorDiv.innerHTML = `<strong>${sensorData.sensorId}</strong><br>Temp: ${sensorData.temperature}°C<br>Timestamp: ${new Date(sensorData.timestamp * 1000).toLocaleString()}`;
+        dataDiv.prepend(sensorDiv);
+    };
+</script>
+</body>
+</html>

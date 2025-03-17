@@ -1,0 +1,11 @@
+{
+  "name": "iot-server",
+  "version": "1.0.0",
+  "description": "Node.js server for IoT dashboard",
+  "main": "server.js",
+  "dependencies": {
+    "express": "^4.17.1",
+    "mongoose": "^6.0.12",
+    "ws": "^8.2.3"
+  }
+}
