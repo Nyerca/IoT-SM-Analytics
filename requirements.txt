@@ -5,3 +5,4 @@ IPython
 plotly
 scikit-learn
 imblearn
+tensorflow

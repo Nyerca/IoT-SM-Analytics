@@ -4,8 +4,8 @@ from datetime import datetime, timedelta
 
 # Generate sample dataset
 np.random.seed(42)
-num_machines = 5  # Number of machines
-num_days = 100  # Number of days of data per machine
+num_machines = 12  # Number of machines
+num_days = 200  # Number of days of data per machine
 samples_per_day = np.random.randint(3, 6, size=num_days)  # Random 3 to 5 samples per day
 
 data = []
@@ -43,7 +43,7 @@ for machine in range(1, num_machines + 1):
             previous_pressure = pressure
 
             # Apply warning signs 3 days before failure
-            if failure_day - 3 <= day < failure_day:
+            if failure_day - 7 <= day < failure_day:
                 temperature += (day - (failure_day - 3)) * 1.5  # Gradual increase
                 vibration += (day - (failure_day - 3)) * 0.7
                 pressure += (day - (failure_day - 3)) * 7

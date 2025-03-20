@@ -13,7 +13,7 @@ from sklearn.metrics import classification_report, accuracy_score, recall_score,
 import time
 
 # Load dataset
-df = pd.read_csv("predictive_maintenance_data.csv")
+df = pd.read_csv("../dataset/predictive_maintenance_data.csv")
 df = df[df['label'] != 2] # Remove broken label
 
 # Convert timestamp to datetime format
