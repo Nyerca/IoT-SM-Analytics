@@ -30,7 +30,7 @@ def create_sequences(X, y, seq_length=10):
         y_seq.append(y[i+seq_length])
     return np.array(X_seq), np.array(y_seq)
 
-seq_length = 10  # Number of past observations to consider
+seq_length = 1  # Number of past observations to consider
 X_seq, y_seq = create_sequences(X_scaled, y, seq_length)
 
 # Time-based train-test split
@@ -87,3 +87,14 @@ print("Classification Report:\n", classification_report(y_test, y_pred))
 
 
 
+def save_model():
+    # Save the trained model
+    model.save("lstm_model.h5")
+
+    # Save the scaler as well
+    import joblib
+    joblib.dump(scaler, "scaler.pkl")
+
+    print("Model and scaler saved successfully.")
+
+save_model()

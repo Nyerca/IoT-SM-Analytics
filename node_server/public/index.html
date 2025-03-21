@@ -3,30 +3,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Real-Time IoT Dashboard</title>
+    <title>Sensor Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; text-align: center; }
-        #data { margin-top: 20px; }
-        .sensor { margin-bottom: 10px; padding: 10px; border: 1px solid black; display: inline-block; }
+        .machine-container {
+            margin-bottom: 20px;
+        }
+        .charts-container {
+            display: flex;
+            justify-content: space-between;
+        }
+        .chart-wrapper {
+            width: 33%;
+        }
     </style>
+    <script>
+        let machines = {};
+
+        function updateMachineData(data) {
+            const { machine_id, temperature, vibration, pressure, label } = data;
+
+            if (!machines[machine_id]) {
+                const container = document.getElementById('machines');
+                const machineDiv = document.createElement('div');
+                machineDiv.classList.add('machine-container');
+                machineDiv.id = `machine-${machine_id}`;
+                machineDiv.innerHTML = `
+                    <h2>Machine ${machine_id} <span id="warning-${machine_id}" style="color:yellow; display:none;">⚠ WARNING</span></h2>
+                    <div class="charts-container">
+                        <div class="chart-wrapper"><canvas id="temp-chart-${machine_id}"></canvas></div>
+                        <div class="chart-wrapper"><canvas id="vib-chart-${machine_id}"></canvas></div>
+                        <div class="chart-wrapper"><canvas id="press-chart-${machine_id}"></canvas></div>
+                    </div>
+                    <hr>
+                `;
+                container.appendChild(machineDiv);
+
+                const tempCtx = document.getElementById(`temp-chart-${machine_id}`).getContext('2d');
+                const vibCtx = document.getElementById(`vib-chart-${machine_id}`).getContext('2d');
+                const pressCtx = document.getElementById(`press-chart-${machine_id}`).getContext('2d');
+
+                machines[machine_id] = {
+                    element: machineDiv,
+                    warning: document.getElementById(`warning-${machine_id}`),
+                    tempChart: createChart(tempCtx, 'Temperature', 'red', 0, 50),
+                    vibChart: createChart(vibCtx, 'Vibration', 'blue', 0, 10),
+                    pressChart: createChart(pressCtx, 'Pressure', 'green', 0, 130)
+                };
+            }
+
+            let machine = machines[machine_id];
+            machine.warning.style.display = label === 1 ? 'inline' : 'none';
+
+            smoothUpdateChart(machine.tempChart, temperature);
+            smoothUpdateChart(machine.vibChart, vibration);
+            smoothUpdateChart(machine.pressChart, pressure);
+        }
+
+        function createChart(ctx, label, color, minY, maxY) {
+            return new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: label,
+                        data: [],
+                        borderColor: color,
+                        fill: false,
+                        tension: 0.3  // Smooth curves
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    animation: {
+                        duration: 500, // Smooth animation
+                        easing: 'easeInOutQuad'
+                    },
+                    scales: {
+                        x: { display: false },
+                        y: { min: minY, max: maxY }
+                    }
+                }
+            });
+        }
+
+        function smoothUpdateChart(chart, value) {
+            let labels = chart.data.labels;
+            let dataset = chart.data.datasets[0].data;
+
+            if (labels.length > 20) labels.shift();
+            labels.push(new Date().toLocaleTimeString());
+            dataset.push(value);
+            if (dataset.length > 20) dataset.shift();
+
+            chart.update('active');
+        }
+
+        document.addEventListener("DOMContentLoaded", function() {
+            const socket = new WebSocket('ws://localhost:3000');
+            socket.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                updateMachineData(data);
+            };
+        });
+    </script>
 </head>
 <body>
-<h1>Real-Time IoT Sensor Data</h1>
-<div id="data"></div>
-
-<script>
-    const ws = new WebSocket("ws://localhost:3000");
-
-    ws.onmessage = (event) => {
-        console.log("event");
-        const sensorData = JSON.parse(event.data);
-        console.log("Received:", sensorData);
-        const dataDiv = document.getElementById("data");
-        const sensorDiv = document.createElement("div");
-        sensorDiv.className = "sensor";
-        sensorDiv.innerHTML = `<strong>${sensorData.sensorId}</strong><br>Temp: ${sensorData.temperature}°C<br>Timestamp: ${new Date(sensorData.timestamp * 1000).toLocaleString()}`;
-        dataDiv.prepend(sensorDiv);
-    };
-</script>
+<h1>Real-Time Sensor Data</h1>
+<div id="machines"></div>
 </body>
 </html>
