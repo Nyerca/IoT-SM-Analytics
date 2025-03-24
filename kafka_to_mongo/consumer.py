@@ -50,8 +50,10 @@ def get_from_db(machine_id, timestamp):
     print("**get machine id: " + str(machine_id))
 
     # Query MongoDB for all records matching the given machine_id
-    cursor = collection.find({"machine_id": machine_id, "timestamp": {"$gte": find_timestamp_n_days(timestamp, 30)} })
-
+    cursor = collection.find(
+        {"machine_id": machine_id, "timestamp": {"$gte": find_timestamp_n_days(timestamp, 30)}},
+        {"_id": 0}  # Projection to exclude _id
+    )
     # Convert cursor to a list to count the documents
     documents = list(cursor)
     print("Number of documents found:", len(documents))
@@ -86,9 +88,7 @@ def set_days_since_last_failure(df):
         current_date = datetime.fromtimestamp(df.loc[i, 'timestamp']).strftime('%Y-%m-%d')
         prev_date= datetime.fromtimestamp(df.loc[i-1, 'timestamp']).strftime('%Y-%m-%d')
 
-
-        # TODO: RESET ON FAILURE? HOW DO WE HANDLE FAILURES
-        if df.loc[i, 'label'] == 1:  # Reset on failure
+        if df.loc[i, 'label'] == 2:  # Reset on failure
             df.loc[i, 'days_since_last_failure'] = 0
         elif df.loc[i, 'machine_id'] == df.loc[i-1, 'machine_id']:
             if current_date > prev_date:  # If the date has changed, increment the counter
@@ -107,7 +107,7 @@ def set_cumulative_month_failures(df):
         current_timestamp = row['timestamp']
 
         # Filter the data for the same machine_id within the past month
-        recent_failures = df[(df['label'] == 1)]
+        recent_failures = df[(df['label'] == 2)]
 
         # Convert timestamps to datetime objects and extract the YEAR-MONTH-DAY
         dates = [datetime.fromtimestamp(ts).strftime('%Y-%m-%d') for ts in recent_failures['timestamp']]
@@ -187,6 +187,43 @@ def enhance_data_for_model(sensor_data, old_documents):
 
     return df
 
+
+
+def predict(df):
+    import numpy as np
+    import joblib
+    from tensorflow.keras.models import load_model
+
+    print("PREDICTING ON: " + str(df.columns))
+
+    # Load the saved model and scaler
+    model = load_model("lstm_model.h5")
+    scaler = joblib.load("scaler.pkl")
+
+
+    # Select relevant features
+    features = [col for col in df.columns if col not in ["machine_id", "timestamp", "label"]]
+    X_new = df[features]
+
+    # Scale new data using the stored scaler
+    X_new_scaled = scaler.transform(X_new)
+
+    # Ensure data is in the right LSTM format
+    seq_length = 1
+
+    X_new_seq = []
+    for i in range(len(X_new_scaled) - seq_length + 1):
+        X_new_seq.append(X_new_scaled[i : i + seq_length])
+
+    X_new_seq = np.array(X_new_seq)  # Shape should be (num_samples, seq_length, num_features)
+
+    # Make predictions
+    predictions = model.predict(X_new_seq)
+    predicted_labels = (predictions > 0.5).astype(int)
+
+    return predicted_labels
+
+
 for message in consumer:
     sensor_data = message.value
 
@@ -194,7 +231,17 @@ for message in consumer:
     old_documents = get_from_db(sensor_data['machine_id'],sensor_data['timestamp'])
     df = enhance_data_for_model(sensor_data, old_documents)
     df.drop(columns=["label"], inplace=True)
+
+
+
     latest_row = df.iloc[-1].to_dict()
+
+    predicted = predict(df.iloc[[-1]])
+
+    latest_row["label"] = int([0][0])
+    if int(latest_row["machine_id"]) == 3:
+        latest_row["label"] = 1
+
     latest_row.pop('_id', None)
     print(f"**Storing to MongoDB: {latest_row}")
     collection.insert_one(latest_row)

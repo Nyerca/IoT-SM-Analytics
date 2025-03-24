@@ -44,6 +44,8 @@ X_new_seq = np.array(X_new_seq)  # Shape should be (num_samples, seq_length, num
 predictions = model.predict(X_new_seq)
 predicted_labels = (predictions > 0.5).astype(int)
 
+print("FIRST " + str(predicted_labels[2][0]))
+
 # Print results
 for i, pred in enumerate(predicted_labels):
     print(f"Sequence {i+1} Predicted Label: {pred[0]}")

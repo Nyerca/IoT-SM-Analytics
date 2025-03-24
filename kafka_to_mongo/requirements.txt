@@ -1,3 +1,6 @@
 kafka-python
 pymongo
 pandas
+scikit-learn
+tensorflow==2.13.0
+joblib

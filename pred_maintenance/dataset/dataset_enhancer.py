@@ -1,7 +1,7 @@
 import pandas as pd
 
 # Load dataset
-df = pd.read_csv("../dataset_mocked_sequential/predictive_maintenance_data.csv", parse_dates=["timestamp"])
+df = pd.read_csv("predictive_maintenance_data.csv", parse_dates=["timestamp"])
 df = df.sort_values(by=['machine_id', 'timestamp'])
 
 # Sort values by machine_id and timestamp
@@ -18,7 +18,7 @@ for i in range(1, len(df)):
     current_date = df.loc[i, 'timestamp'].date()
     prev_date = df.loc[i-1, 'timestamp'].date()
 
-    if df.loc[i, 'label'] == 1:  # Reset on failure
+    if df.loc[i, 'label'] == 2:  # Reset on failure
         df.loc[i, 'days_since_last_failure'] = 0
     elif df.loc[i, 'machine_id'] == df.loc[i-1, 'machine_id']:
         if current_date > prev_date:  # If the date has changed, increment the counter
@@ -40,7 +40,7 @@ def calculate_cumulative_month_failures(row, df):
     recent_failures = df[(df['machine_id'] == row['machine_id']) &
                          (df['timestamp'] >= start_of_month) &
                          (df['timestamp'] <= current_timestamp) &
-                         (df['label'] == 1)]
+                         (df['label'] == 2)]
 
     # Get the unique days when failures occurred
     unique_failure_days = recent_failures['timestamp'].dt.date.nunique()
