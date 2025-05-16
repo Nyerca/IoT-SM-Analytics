@@ -1,5 +1,5 @@
 #!/bin/bash
-sleep 5
+sleep 10
 mongosh --host mongo1:27017 <<EOF
 rs.initiate({
   _id: "rs0",

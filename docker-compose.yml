@@ -1,0 +1,130 @@
+version: '3.8'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - 22181:2181
+    networks:
+      - mongo-net
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    #build:
+    #  context: .
+    #  dockerfile: Dockerfile.kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - 29092:29092
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+    networks:
+      - mongo-net
+  init-kafka:
+    image: confluentinc/cp-kafka:6.1.1
+    depends_on:
+      - kafka
+    entrypoint: [ '/bin/sh', '-c' ]
+    command: |
+      "
+      # blocks until kafka is reachable
+      kafka-topics --bootstrap-server kafka:9092 --list
+
+      if kafka-topics --bootstrap-server kafka:9092 --list | grep -q "^my-kafka-topic"; then
+        echo Topic $TOPIC_NAME already exists, altering...
+        kafka-topics --bootstrap-server kafka:9092 --alter --topic my-kafka-topic --partitions $PARTITIONS
+      else
+        echo Topic $TOPIC_NAME does not exist, creating...
+        kafka-topics --bootstrap-server kafka:9092 --create --topic my-kafka-topic --replication-factor 1 --partitions 2
+      fi
+
+      echo -e 'Successfully created the following topics:'
+      kafka-topics --bootstrap-server kafka:9092 --list
+      "
+  # kafka-topics --bootstrap-server kafka:9092 --create --topic my-kafka-topic --replication-factor 1 --partitions 3
+    networks:
+      - mongo-net
+
+  mongo1:
+    image: mongo:6
+    container_name: mongo1
+    command: [ "mongod", "--replSet", "rs0", "--bind_ip_all" ]
+    ports:
+      - "27017:27017"
+    networks:
+      - mongo-net
+
+  mongo2:
+    image: mongo:6
+    container_name: mongo2
+    command: [ "mongod", "--replSet", "rs0", "--bind_ip_all" ]
+    networks:
+      - mongo-net
+
+  mongo3:
+    image: mongo:6
+    container_name: mongo3
+    command: [ "mongod", "--replSet", "rs0", "--bind_ip_all" ]
+    networks:
+      - mongo-net
+
+  mongo-init:
+    image: mongo:6
+    container_name: mongo-init
+    depends_on:
+      - mongo1
+      - mongo2
+      - mongo3
+    volumes:
+      - ./initiate_replica_set.sh:/scripts/initiate_replica_set.sh
+    entrypoint: [ "bash", "/scripts/initiate_replica_set.sh" ]
+    networks:
+      - mongo-net
+
+  mongo-express:
+    image: mongo-express:latest
+    container_name: mongo-express
+    restart: always
+    ports:
+      - 8081:8081
+    environment:
+      - ME_CONFIG_MONGODB_ADMINURL=mongodb://admin:adminpassword@mongo1:27017,mongo2:27017,mongo3:27017/?replicaSet=rs0
+      - ME_CONFIG_MONGODB_SERVER=mongo1
+      - ME_CONFIG_MONGODB_PORT=27017
+    networks:
+      - mongo-net
+
+
+  kafka_producer:
+    build: ./kafka_producer
+    restart: always
+    depends_on:
+      - kafka
+      - init-kafka
+    networks:
+      - mongo-net
+
+  kafka_to_mongo:
+    build: ./kafka_to_mongo
+    restart: always
+    depends_on:
+      - kafka
+      - init-kafka
+      - kafka_producer
+      - mongo-init
+    networks:
+      - mongo-net
+
+
+networks:
+  mongo-net:
+    driver: bridge
