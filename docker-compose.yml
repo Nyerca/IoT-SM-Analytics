@@ -124,6 +124,20 @@ services:
     networks:
       - mongo-net
 
+  node-app:
+    build: ./node_server
+    volumes:
+      - ./node_server:/usr/src/app
+      - /usr/src/app/node_modules
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mongo1
+      - mongo2
+      - mongo3
+    networks:
+      - mongo-net
+
 
 networks:
   mongo-net:
